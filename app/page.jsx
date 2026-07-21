@@ -201,8 +201,8 @@ export default function Home() {
 
 const styles = {
   logo: {
-    height: 70,
-    marginBottom: 16,
+    height: 110,
+    marginBottom: 20,
   },
   title: { fontSize: 24, fontWeight: 700, marginBottom: 16 },
   newClientRow: { display: "flex", gap: 8 },
