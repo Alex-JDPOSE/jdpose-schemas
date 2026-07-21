@@ -183,12 +183,9 @@ export default function Home() {
 
 const styles = {
   logo: {
-    fontSize: 26,
-    fontWeight: 800,
-    color: "#2f6fed",
-    letterSpacing: 1,
-    marginBottom: 16,
-  },
+  height: 40,
+  marginBottom: 16,
+},
   title: { fontSize: 24, fontWeight: 700, marginBottom: 16 },
   newClientRow: { display: "flex", gap: 8 },
   input: {
