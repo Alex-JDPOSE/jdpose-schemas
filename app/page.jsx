@@ -182,7 +182,7 @@ export default function Home() {
 
 const styles = {
   logo: {
-  height: 40,
+  height: 70,
   marginBottom: 16,
 },
   title: { fontSize: 24, fontWeight: 700, marginBottom: 16 },
