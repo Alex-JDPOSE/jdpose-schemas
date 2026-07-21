@@ -107,8 +107,7 @@ export default function Home() {
   };
 
   const Logo = () => (
-  <img src="/logo-jdpose.png" alt="JDPOSE" style={styles.logo} />
-);
+<img src="https://hzpgkwyeglxggwcqxdfo.supabase.co/storage/v1/object/public/photos/logo-JDPOSE.png" alt="JDPOSE" style={styles.logo} />);
 
   if (selectedClient) {
     return (
