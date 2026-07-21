@@ -12,6 +12,7 @@ export default function Home() {
   const [schemas, setSchemas] = useState([]);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [schemaNom, setSchemaNom] = useState("");
 
   useEffect(() => {
     loadClients();
@@ -75,11 +76,13 @@ export default function Home() {
       const { error: insertError } = await supabase.from("schema_dessins").insert({
         client_id: selectedClient.id,
         image_url: urlData.publicUrl,
+        note: schemaNom.trim() || null,
       });
 
       if (insertError) throw insertError;
 
       setMessage("Schéma enregistré ✅");
+      setSchemaNom("");
       await loadSchemas(selectedClient.id);
     } catch (err) {
       console.error(err);
@@ -107,7 +110,12 @@ export default function Home() {
   };
 
   const Logo = () => (
-<img src="https://hzpgkwyeglxggwcqxdfo.supabase.co/storage/v1/object/public/photos/logo-JDPOSE.png" alt="JDPOSE" style={styles.logo} />);
+    <img
+      src="https://hzpgkwyeglxggwcqxdfo.supabase.co/storage/v1/object/public/photos/logo-JDPOSE.png"
+      alt="JDPOSE"
+      style={styles.logo}
+    />
+  );
 
   if (selectedClient) {
     return (
@@ -117,6 +125,16 @@ export default function Home() {
           ← Retour aux dossiers
         </button>
         <h1 style={styles.title}>{selectedClient.nom}</h1>
+
+        <div style={{ marginBottom: 10 }}>
+          <input
+            type="text"
+            placeholder="Nom du schéma (ex : Porte quai 3)"
+            value={schemaNom}
+            onChange={(e) => setSchemaNom(e.target.value)}
+            style={styles.input}
+          />
+        </div>
 
         <SchemaEditor onSave={handleSaveSchema} />
         {saving && <p>Enregistrement en cours...</p>}
@@ -136,6 +154,7 @@ export default function Home() {
                   >
                     ✕
                   </button>
+                  {s.note && <p style={styles.thumbLabel}>{s.note}</p>}
                 </div>
               ))}
             </div>
@@ -182,9 +201,9 @@ export default function Home() {
 
 const styles = {
   logo: {
-  height: 100,
-  marginBottom: 19,
-},
+    height: 70,
+    marginBottom: 16,
+  },
   title: { fontSize: 24, fontWeight: 700, marginBottom: 16 },
   newClientRow: { display: "flex", gap: 8 },
   input: {
@@ -230,6 +249,12 @@ const styles = {
     borderRadius: 8,
     border: "1px solid #ddd",
     display: "block",
+  },
+  thumbLabel: {
+    fontSize: 13,
+    color: "#444",
+    marginTop: 4,
+    textAlign: "center",
   },
   deleteBtn: {
     position: "absolute",
