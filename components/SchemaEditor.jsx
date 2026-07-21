@@ -296,4 +296,254 @@ export default function SchemaEditor({ onSave, width = 900, height = 600 }) {
 
   return (
     <div style={styles.wrapper}>
+      <div style={styles.toolbar}>
+        <div style={styles.toolGroup}>
+          {TOOLS.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTool(t.id)}
+              style={{
+                ...styles.toolBtn,
+                ...(tool === t.id ? styles.toolBtnActive : {}),
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div style={styles.toolGroup}>
+          {COLORS.map((c) => (
+            <button
+              key={c}
+              onClick={() => setColor(c)}
+              title={c}
+              style={{
+                ...styles.colorSwatch,
+                background: c,
+                outline: color === c ? "2px solid #1a1a1a" : "1px solid #ccc",
+              }}
+            />
+          ))}
+          <input
+            type="range"
+            min="1"
+            max="12"
+            value={lineWidth}
+            onChange={(e) => setLineWidth(Number(e.target.value))}
+            style={{ marginLeft: 8 }}
+          />
+        </div>
+
+        <div style={styles.toolGroup}>
+          <label style={styles.fileBtn}>
+            Photo de fond
+            <input type="file" accept="image/*" onChange={handleBgUpload} hidden />
+          </label>
+          <button onClick={undo} style={styles.actionBtn}>↩ Annuler</button>
+          <button onClick={redo} style={styles.actionBtn}>↪ Rétablir</button>
+          <button onClick={clearAll} style={styles.actionBtnDanger}>Effacer tout</button>
+        </div>
+      </div>
+
+      {tool === "text" && (
+        <p style={styles.hint}>
+          Clique sur le dessin pour ajouter du texte, puis fais-le glisser pour le repositionner.
+        </p>
+      )}
+
+      <p style={styles.pageIndicator}>Feuille {pageNum}</p>
+
       <div
+        ref={containerRef}
+        style={styles.canvasContainer}
+        onMouseMove={handleContainerPointerMove}
+        onMouseUp={handleContainerPointerUp}
+        onMouseLeave={handleContainerPointerUp}
+        onTouchMove={handleContainerPointerMove}
+        onTouchEnd={handleContainerPointerUp}
+      >
+        <canvas
+          ref={canvasRef}
+          style={styles.canvas}
+          onMouseDown={handleStart}
+          onMouseMove={handleMove}
+          onMouseUp={handleEnd}
+          onMouseLeave={handleEnd}
+          onTouchStart={handleStart}
+          onTouchMove={handleMove}
+          onTouchEnd={handleEnd}
+        />
+
+        {textItems.map((t) => (
+          <div
+            key={t.id}
+            onMouseDown={(e) => handleTextPointerDown(e, t.id)}
+            onTouchStart={(e) => handleTextPointerDown(e, t.id)}
+            style={{
+              ...styles.textItem,
+              left: `${t.xPct}%`,
+              top: `${t.yPct}%`,
+              color: t.color,
+            }}
+          >
+            {t.text}
+            <span
+              onClick={(e) => {
+                e.stopPropagation();
+                removeTextItem(t.id);
+              }}
+              style={styles.textItemClose}
+            >
+              ✕
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <div style={styles.footer}>
+        <button onClick={handleExportAndNewSheet} style={styles.newSheetBtn}>
+          + Nouvelle feuille (enregistre celle-ci)
+        </button>
+        <button onClick={handleExport} style={styles.saveBtn}>
+          Enregistrer
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const styles = {
+  wrapper: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+    fontFamily: "system-ui, sans-serif",
+    maxWidth: 940,
+    margin: "0 auto",
+  },
+  toolbar: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 12,
+    alignItems: "center",
+    padding: "8px 4px",
+  },
+  toolGroup: {
+    display: "flex",
+    gap: 6,
+    alignItems: "center",
+    flexWrap: "wrap",
+  },
+  toolBtn: {
+    padding: "8px 12px",
+    borderRadius: 8,
+    border: "1px solid #d0d0d0",
+    background: "#f5f5f5",
+    cursor: "pointer",
+    fontSize: 14,
+  },
+  toolBtnActive: {
+    background: "#1a1a1a",
+    color: "#fff",
+    borderColor: "#1a1a1a",
+  },
+  colorSwatch: {
+    width: 26,
+    height: 26,
+    borderRadius: "50%",
+    cursor: "pointer",
+  },
+  fileBtn: {
+    padding: "8px 12px",
+    borderRadius: 8,
+    border: "1px solid #d0d0d0",
+    background: "#f5f5f5",
+    cursor: "pointer",
+    fontSize: 14,
+  },
+  actionBtn: {
+    padding: "8px 12px",
+    borderRadius: 8,
+    border: "1px solid #d0d0d0",
+    background: "#fff",
+    cursor: "pointer",
+    fontSize: 14,
+  },
+  actionBtnDanger: {
+    padding: "8px 12px",
+    borderRadius: 8,
+    border: "1px solid #e0a0a0",
+    background: "#fff5f5",
+    color: "#a12626",
+    cursor: "pointer",
+    fontSize: 14,
+  },
+  hint: {
+    fontSize: 13,
+    color: "#666",
+    margin: "0 4px",
+  },
+  pageIndicator: {
+    fontSize: 13,
+    color: "#888",
+    margin: "0 4px",
+  },
+  canvasContainer: {
+    position: "relative",
+    width: "100%",
+  },
+  canvas: {
+    width: "100%",
+    touchAction: "none",
+    border: "1px solid #ddd",
+    borderRadius: 8,
+    background: "#fff",
+    cursor: "crosshair",
+    display: "block",
+  },
+  textItem: {
+    position: "absolute",
+    fontSize: 18,
+    fontWeight: 600,
+    cursor: "grab",
+    userSelect: "none",
+    padding: "2px 6px",
+    background: "rgba(255,255,255,0.6)",
+    borderRadius: 4,
+    transform: "translate(0, -50%)",
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+  },
+  textItemClose: {
+    fontSize: 12,
+    color: "#a12626",
+    cursor: "pointer",
+  },
+  footer: {
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: 10,
+  },
+  newSheetBtn: {
+    padding: "10px 16px",
+    borderRadius: 8,
+    border: "1px solid #2f6fed",
+    background: "#fff",
+    color: "#2f6fed",
+    fontSize: 15,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  saveBtn: {
+    padding: "10px 20px",
+    borderRadius: 8,
+    border: "none",
+    background: "#2f6fed",
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+};
