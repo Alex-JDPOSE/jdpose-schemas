@@ -89,9 +89,31 @@ export default function Home() {
     }
   };
 
+  const handleDeleteSchema = async (schema) => {
+    const confirmed = window.confirm("Supprimer ce schéma définitivement ?");
+    if (!confirmed) return;
+
+    try {
+      const fileName = schema.image_url.split("/schema-dessins/").pop();
+      await supabase.storage.from("schema-dessins").remove([fileName]);
+
+      await supabase.from("schema_dessins").delete().eq("id", schema.id);
+
+      setSchemas((prev) => prev.filter((s) => s.id !== schema.id));
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de la suppression");
+    }
+  };
+
+  const Logo = () => (
+    <div style={styles.logo}>JD<span style={{ color: "#1a1a1a" }}>POSE</span></div>
+  );
+
   if (selectedClient) {
     return (
       <div style={{ maxWidth: 960, margin: "0 auto", padding: 20 }}>
+        <Logo />
         <button onClick={() => setSelectedClient(null)} style={styles.backBtn}>
           ← Retour aux dossiers
         </button>
@@ -106,12 +128,16 @@ export default function Home() {
             <h2 style={{ fontSize: 18 }}>Schémas précédents</h2>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
               {schemas.map((s) => (
-                <img
-                  key={s.id}
-                  src={s.image_url}
-                  alt="schéma"
-                  style={{ width: 160, borderRadius: 8, border: "1px solid #ddd" }}
-                />
+                <div key={s.id} style={styles.thumbWrapper}>
+                  <img src={s.image_url} alt="schéma" style={styles.thumb} />
+                  <button
+                    onClick={() => handleDeleteSchema(s)}
+                    style={styles.deleteBtn}
+                    title="Supprimer ce schéma"
+                  >
+                    ✕
+                  </button>
+                </div>
               ))}
             </div>
           </div>
@@ -122,6 +148,7 @@ export default function Home() {
 
   return (
     <div style={{ maxWidth: 700, margin: "0 auto", padding: 20 }}>
+      <Logo />
       <h1 style={styles.title}>Schémas techniciens</h1>
 
       <div style={styles.newClientRow}>
@@ -155,6 +182,13 @@ export default function Home() {
 }
 
 const styles = {
+  logo: {
+    fontSize: 26,
+    fontWeight: 800,
+    color: "#2f6fed",
+    letterSpacing: 1,
+    marginBottom: 16,
+  },
   title: { fontSize: 24, fontWeight: 700, marginBottom: 16 },
   newClientRow: { display: "flex", gap: 8 },
   input: {
@@ -190,5 +224,29 @@ const styles = {
     fontSize: 14,
     padding: 0,
     marginBottom: 12,
+  },
+  thumbWrapper: {
+    position: "relative",
+    width: 160,
+  },
+  thumb: {
+    width: 160,
+    borderRadius: 8,
+    border: "1px solid #ddd",
+    display: "block",
+  },
+  deleteBtn: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    background: "rgba(255,255,255,0.9)",
+    border: "1px solid #e0a0a0",
+    color: "#a12626",
+    borderRadius: "50%",
+    width: 24,
+    height: 24,
+    cursor: "pointer",
+    fontSize: 13,
+    lineHeight: 1,
   },
 };
