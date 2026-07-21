@@ -15,6 +15,7 @@ const COLORS = ["#1a1a1a", "#d64545", "#2f6fed", "#2f9e44", "#f08c00"];
 export default function SchemaEditor({ onSave, width = 900, height = 600 }) {
   const canvasRef = useRef(null);
   const ctxRef = useRef(null);
+  const containerRef = useRef(null);
   const bgImageRef = useRef(null);
 
   const [tool, setTool] = useState("pen");
@@ -23,6 +24,9 @@ export default function SchemaEditor({ onSave, width = 900, height = 600 }) {
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPos, setStartPos] = useState(null);
   const [snapshot, setSnapshot] = useState(null);
+
+  const [textItems, setTextItems] = useState([]);
+  const [draggingId, setDraggingId] = useState(null);
 
   const historyRef = useRef([]);
   const redoRef = useRef([]);
@@ -80,6 +84,7 @@ export default function SchemaEditor({ onSave, width = 900, height = 600 }) {
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     bgImageRef.current = null;
+    setTextItems([]);
     pushHistory();
   };
 
@@ -91,6 +96,16 @@ export default function SchemaEditor({ onSave, width = 900, height = 600 }) {
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+  };
+
+  const getPercentPos = (e) => {
+    const rect = containerRef.current.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      xPct: ((clientX - rect.left) / rect.width) * 100,
+      yPct: ((clientY - rect.top) / rect.height) * 100,
+    };
   };
 
   const drawArrowHead = (ctx, from, to) => {
@@ -111,23 +126,23 @@ export default function SchemaEditor({ onSave, width = 900, height = 600 }) {
   };
 
   const handleStart = (e) => {
+    if (tool === "text") {
+      const label = window.prompt("Texte à insérer :", "");
+      if (label) {
+        const { xPct, yPct } = getPercentPos(e);
+        setTextItems((prev) => [
+          ...prev,
+          { id: Date.now() + Math.random(), text: label, color, xPct, yPct },
+        ]);
+      }
+      return;
+    }
+
     e.preventDefault();
     const ctx = ctxRef.current;
     const pos = getPos(e);
     setStartPos(pos);
     setIsDrawing(true);
-
-    if (tool === "text") {
-      const label = window.prompt("Texte à insérer :", "");
-      if (label) {
-        ctx.fillStyle = color;
-        ctx.font = "20px sans-serif";
-        ctx.fillText(label, pos.x, pos.y);
-        pushHistory();
-      }
-      setIsDrawing(false);
-      return;
-    }
 
     if (tool === "pen" || tool === "eraser") {
       ctx.beginPath();
@@ -189,6 +204,27 @@ export default function SchemaEditor({ onSave, width = 900, height = 600 }) {
     setSnapshot(null);
   };
 
+  const handleTextPointerDown = (e, id) => {
+    e.stopPropagation();
+    setDraggingId(id);
+  };
+
+  const handleContainerPointerMove = (e) => {
+    if (draggingId == null) return;
+    const { xPct, yPct } = getPercentPos(e);
+    setTextItems((prev) =>
+      prev.map((t) => (t.id === draggingId ? { ...t, xPct, yPct } : t))
+    );
+  };
+
+  const handleContainerPointerUp = () => {
+    setDraggingId(null);
+  };
+
+  const removeTextItem = (id) => {
+    setTextItems((prev) => prev.filter((t) => t.id !== id));
+  };
+
   const handleBgUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -217,7 +253,22 @@ export default function SchemaEditor({ onSave, width = 900, height = 600 }) {
 
   const handleExport = () => {
     const canvas = canvasRef.current;
-    canvas.toBlob((blob) => {
+    const finalCanvas = document.createElement("canvas");
+    finalCanvas.width = canvas.width;
+    finalCanvas.height = canvas.height;
+    const fctx = finalCanvas.getContext("2d");
+
+    fctx.drawImage(canvas, 0, 0);
+
+    textItems.forEach((t) => {
+      const x = (t.xPct / 100) * canvas.width;
+      const y = (t.yPct / 100) * canvas.height;
+      fctx.fillStyle = t.color;
+      fctx.font = "20px sans-serif";
+      fctx.fillText(t.text, x, y);
+    });
+
+    finalCanvas.toBlob((blob) => {
       if (blob && onSave) onSave(blob);
     }, "image/png");
   };
@@ -274,17 +325,58 @@ export default function SchemaEditor({ onSave, width = 900, height = 600 }) {
         </div>
       </div>
 
-      <canvas
-        ref={canvasRef}
-        style={styles.canvas}
-        onMouseDown={handleStart}
-        onMouseMove={handleMove}
-        onMouseUp={handleEnd}
-        onMouseLeave={handleEnd}
-        onTouchStart={handleStart}
-        onTouchMove={handleMove}
-        onTouchEnd={handleEnd}
-      />
+      {tool === "text" && (
+        <p style={styles.hint}>
+          Clique sur le dessin pour ajouter du texte, puis fais-le glisser pour le repositionner.
+        </p>
+      )}
+
+      <div
+        ref={containerRef}
+        style={styles.canvasContainer}
+        onMouseMove={handleContainerPointerMove}
+        onMouseUp={handleContainerPointerUp}
+        onMouseLeave={handleContainerPointerUp}
+        onTouchMove={handleContainerPointerMove}
+        onTouchEnd={handleContainerPointerUp}
+      >
+        <canvas
+          ref={canvasRef}
+          style={styles.canvas}
+          onMouseDown={handleStart}
+          onMouseMove={handleMove}
+          onMouseUp={handleEnd}
+          onMouseLeave={handleEnd}
+          onTouchStart={handleStart}
+          onTouchMove={handleMove}
+          onTouchEnd={handleEnd}
+        />
+
+        {textItems.map((t) => (
+          <div
+            key={t.id}
+            onMouseDown={(e) => handleTextPointerDown(e, t.id)}
+            onTouchStart={(e) => handleTextPointerDown(e, t.id)}
+            style={{
+              ...styles.textItem,
+              left: `${t.xPct}%`,
+              top: `${t.yPct}%`,
+              color: t.color,
+            }}
+          >
+            {t.text}
+            <span
+              onClick={(e) => {
+                e.stopPropagation();
+                removeTextItem(t.id);
+              }}
+              style={styles.textItemClose}
+            >
+              ✕
+            </span>
+          </div>
+        ))}
+      </div>
 
       <div style={styles.footer}>
         <button onClick={handleExport} style={styles.saveBtn}>
@@ -361,6 +453,15 @@ const styles = {
     cursor: "pointer",
     fontSize: 14,
   },
+  hint: {
+    fontSize: 13,
+    color: "#666",
+    margin: "0 4px",
+  },
+  canvasContainer: {
+    position: "relative",
+    width: "100%",
+  },
   canvas: {
     width: "100%",
     touchAction: "none",
@@ -368,6 +469,26 @@ const styles = {
     borderRadius: 8,
     background: "#fff",
     cursor: "crosshair",
+    display: "block",
+  },
+  textItem: {
+    position: "absolute",
+    fontSize: 18,
+    fontWeight: 600,
+    cursor: "grab",
+    userSelect: "none",
+    padding: "2px 6px",
+    background: "rgba(255,255,255,0.6)",
+    borderRadius: 4,
+    transform: "translate(0, -50%)",
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+  },
+  textItemClose: {
+    fontSize: 12,
+    color: "#a12626",
+    cursor: "pointer",
   },
   footer: {
     display: "flex",
