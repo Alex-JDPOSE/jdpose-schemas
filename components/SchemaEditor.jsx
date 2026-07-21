@@ -133,4 +133,254 @@ export default function SchemaEditor({ onSave, width = 900, height = 600 }) {
       ctx.beginPath();
       ctx.moveTo(pos.x, pos.y);
     } else {
-      setSnapshot(canvasRef.current.toDa
+      setSnapshot(canvasRef.current.toDataURL());
+    }
+  };
+
+  const handleMove = (e) => {
+    if (!isDrawing) return;
+    e.preventDefault();
+    const ctx = ctxRef.current;
+    const pos = getPos(e);
+
+    ctx.strokeStyle = tool === "eraser" ? "#ffffff" : color;
+    ctx.lineWidth = tool === "eraser" ? lineWidth * 4 : lineWidth;
+
+    if (tool === "pen" || tool === "eraser") {
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+      return;
+    }
+
+    if (snapshot) {
+      const img = new Image();
+      img.onload = () => {
+        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        ctx.drawImage(img, 0, 0);
+        drawShapePreview(ctx, startPos, pos);
+      };
+      img.src = snapshot;
+    }
+  };
+
+  const drawShapePreview = (ctx, from, to) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineWidth;
+    if (tool === "line" || tool === "arrow") {
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+      if (tool === "arrow") drawArrowHead(ctx, from, to);
+    } else if (tool === "rect") {
+      ctx.strokeRect(from.x, from.y, to.x - from.x, to.y - from.y);
+    } else if (tool === "circle") {
+      const r = Math.hypot(to.x - from.x, to.y - from.y);
+      ctx.beginPath();
+      ctx.arc(from.x, from.y, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  };
+
+  const handleEnd = () => {
+    if (!isDrawing) return;
+    setIsDrawing(false);
+    pushHistory();
+    setSnapshot(null);
+  };
+
+  const handleBgUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = canvasRef.current;
+        const ctx = ctxRef.current;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+        const w = img.width * scale;
+        const h = img.height * scale;
+        const x = (canvas.width - w) / 2;
+        const y = (canvas.height - h) / 2;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, x, y, w, h);
+        bgImageRef.current = ev.target.result;
+        pushHistory();
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleExport = () => {
+    const canvas = canvasRef.current;
+    canvas.toBlob((blob) => {
+      if (blob && onSave) onSave(blob);
+    }, "image/png");
+  };
+
+  return (
+    <div style={styles.wrapper}>
+      <div style={styles.toolbar}>
+        <div style={styles.toolGroup}>
+          {TOOLS.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTool(t.id)}
+              style={{
+                ...styles.toolBtn,
+                ...(tool === t.id ? styles.toolBtnActive : {}),
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div style={styles.toolGroup}>
+          {COLORS.map((c) => (
+            <button
+              key={c}
+              onClick={() => setColor(c)}
+              title={c}
+              style={{
+                ...styles.colorSwatch,
+                background: c,
+                outline: color === c ? "2px solid #1a1a1a" : "1px solid #ccc",
+              }}
+            />
+          ))}
+          <input
+            type="range"
+            min="1"
+            max="12"
+            value={lineWidth}
+            onChange={(e) => setLineWidth(Number(e.target.value))}
+            style={{ marginLeft: 8 }}
+          />
+        </div>
+
+        <div style={styles.toolGroup}>
+          <label style={styles.fileBtn}>
+            Photo de fond
+            <input type="file" accept="image/*" onChange={handleBgUpload} hidden />
+          </label>
+          <button onClick={undo} style={styles.actionBtn}>↩ Annuler</button>
+          <button onClick={redo} style={styles.actionBtn}>↪ Rétablir</button>
+          <button onClick={clearAll} style={styles.actionBtnDanger}>Effacer tout</button>
+        </div>
+      </div>
+
+      <canvas
+        ref={canvasRef}
+        style={styles.canvas}
+        onMouseDown={handleStart}
+        onMouseMove={handleMove}
+        onMouseUp={handleEnd}
+        onMouseLeave={handleEnd}
+        onTouchStart={handleStart}
+        onTouchMove={handleMove}
+        onTouchEnd={handleEnd}
+      />
+
+      <div style={styles.footer}>
+        <button onClick={handleExport} style={styles.saveBtn}>
+          Enregistrer le schéma
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const styles = {
+  wrapper: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+    fontFamily: "system-ui, sans-serif",
+    maxWidth: 940,
+    margin: "0 auto",
+  },
+  toolbar: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 12,
+    alignItems: "center",
+    padding: "8px 4px",
+  },
+  toolGroup: {
+    display: "flex",
+    gap: 6,
+    alignItems: "center",
+    flexWrap: "wrap",
+  },
+  toolBtn: {
+    padding: "8px 12px",
+    borderRadius: 8,
+    border: "1px solid #d0d0d0",
+    background: "#f5f5f5",
+    cursor: "pointer",
+    fontSize: 14,
+  },
+  toolBtnActive: {
+    background: "#1a1a1a",
+    color: "#fff",
+    borderColor: "#1a1a1a",
+  },
+  colorSwatch: {
+    width: 26,
+    height: 26,
+    borderRadius: "50%",
+    cursor: "pointer",
+  },
+  fileBtn: {
+    padding: "8px 12px",
+    borderRadius: 8,
+    border: "1px solid #d0d0d0",
+    background: "#f5f5f5",
+    cursor: "pointer",
+    fontSize: 14,
+  },
+  actionBtn: {
+    padding: "8px 12px",
+    borderRadius: 8,
+    border: "1px solid #d0d0d0",
+    background: "#fff",
+    cursor: "pointer",
+    fontSize: 14,
+  },
+  actionBtnDanger: {
+    padding: "8px 12px",
+    borderRadius: 8,
+    border: "1px solid #e0a0a0",
+    background: "#fff5f5",
+    color: "#a12626",
+    cursor: "pointer",
+    fontSize: 14,
+  },
+  canvas: {
+    width: "100%",
+    touchAction: "none",
+    border: "1px solid #ddd",
+    borderRadius: 8,
+    background: "#fff",
+    cursor: "crosshair",
+  },
+  footer: {
+    display: "flex",
+    justifyContent: "flex-end",
+  },
+  saveBtn: {
+    padding: "10px 20px",
+    borderRadius: 8,
+    border: "none",
+    background: "#2f6fed",
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+};
