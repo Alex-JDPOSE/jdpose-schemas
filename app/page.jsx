@@ -107,8 +107,8 @@ export default function Home() {
   };
 
   const Logo = () => (
-    <div style={styles.logo}>JD<span style={{ color: "#1a1a1a" }}>POSE</span></div>
-  );
+  <img src="/logo-jdpose.png" alt="JDPOSE" style={styles.logo} />
+);
 
   if (selectedClient) {
     return (
